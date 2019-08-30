@@ -3,6 +3,7 @@
   "packages": [
     "packages/*",
     "example"
+    "demo"
   ],
   "version": "4.0.0-alpha.3"
 }
