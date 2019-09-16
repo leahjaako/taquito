@@ -13,6 +13,7 @@ describe('RpcContractProvider test', () => {
     getStorage: jest.Mock<any, any>;
     getBigMapKey: jest.Mock<any, any>;
     getBlockHeader: jest.Mock<any, any>;
+    getManagerKey: jest.Mock<any, any>;
     getBlock: jest.Mock<any, any>;
     getContract: jest.Mock<any, any>;
     getBlockMetadata: jest.Mock<any, any>;
@@ -31,6 +32,7 @@ describe('RpcContractProvider test', () => {
     mockRpcClient = {
       getBlock: jest.fn(),
       getScript: jest.fn(),
+      getManagerKey: jest.fn(),
       getStorage: jest.fn(),
       getBigMapKey: jest.fn(),
       getBlockHeader: jest.fn(),
@@ -54,6 +56,8 @@ describe('RpcContractProvider test', () => {
         level: 0,
       },
     });
+
+    mockRpcClient.getManagerKey.mockResolvedValue('test');
 
     rpcContractProvider = new RpcContractProvider(
       new Context(mockRpcClient as any, mockSigner as any)
@@ -167,7 +171,7 @@ describe('RpcContractProvider test', () => {
       mockSigner.sign.mockResolvedValue({ sbytes: 'test', prefixSig: 'test_sig' });
       mockSigner.publicKey.mockResolvedValue('test_pub_key');
       mockSigner.publicKeyHash.mockResolvedValue('test_pub_key_hash');
-      const result = await rpcContractProvider.transfer({ to: 'test_to', amount: 200 });
+      const result = await rpcContractProvider.transfer({ to: 'test_to', amount: 2 });
       expect(result.raw).toEqual({
         counter: 0,
         opOb: {
@@ -183,7 +187,7 @@ describe('RpcContractProvider test', () => {
               storage_limit: '300',
             },
             {
-              amount: '200',
+              amount: '2000000',
               counter: '2',
               destination: 'test_to',
               fee: '10000',

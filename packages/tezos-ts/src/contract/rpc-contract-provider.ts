@@ -11,12 +11,14 @@ import {
   ForgedBytes,
   RevealOperation,
 } from './interface';
-import { Schema } from '@tezos-ts/michelson-encoder';
+import { Schema, ParameterSchema } from '@tezos-ts/michelson-encoder';
 import { ml2mic, sexp2mic } from '@tezos-ts/utils';
 import { format } from '../format';
 import { Context } from '../context';
 import { Operation } from './operations';
 import { BlockResponse } from '@tezos-ts/rpc';
+import { Contract } from './contract';
+import { DEFAULT_FEE, DEFAULT_GAS_LIMIT, DEFAULT_STORAGE_LIMIT } from './constants';
 
 export class RpcContractProvider implements ContractProvider {
   constructor(private context: Context) {}
@@ -108,9 +110,9 @@ export class RpcContractProvider implements ContractProvider {
     for (let i = 0; i < ops.length; i++) {
       if (['transaction', 'origination', 'delegation'].includes(ops[i].kind)) {
         requiresReveal = true;
-        const { counter, manager } = await this.rpc.getContract(publicKeyHash);
+        const { counter } = await this.rpc.getContract(publicKeyHash);
         promises.push(Promise.resolve(counter));
-        promises.push(Promise.resolve(manager));
+        promises.push(this.rpc.getManagerKey(publicKeyHash));
         break;
       }
     }
@@ -121,15 +123,15 @@ export class RpcContractProvider implements ContractProvider {
       async ([header, headCounter, manager, metadata]: any[]): Promise<any> => {
         head = header;
 
-        const managerKey = manager;
+        const managerKey = manager.key;
         if (requiresReveal && !managerKey) {
           const reveal: RevealOperation = {
             kind: 'reveal',
-            fee: 1420,
+            fee: DEFAULT_FEE.REVEAL,
             public_key: await this.signer.publicKey(),
             source: publicKeyHash,
-            gas_limit: 10600,
-            storage_limit: 300,
+            gas_limit: DEFAULT_GAS_LIMIT.REVEAL,
+            storage_limit: DEFAULT_STORAGE_LIMIT.REVEAL,
           };
 
           ops.unshift(reveal);
@@ -236,6 +238,15 @@ export class RpcContractProvider implements ContractProvider {
     );
   }
 
+  async at(address: string): Promise<any> {
+    let script = await this.rpc.getScript(address);
+
+    let contractSchema: Schema = Schema.fromRPCResponse({ script });
+    let parameterSchema: ParameterSchema = ParameterSchema.fromRPCResponse({ script });
+
+    return new Contract(address, contractSchema, parameterSchema, this);
+  }
+
   /**
    *
    * @description Originate a new contract according to the script in parameters. Will sign and inject an operation using the current context
@@ -251,13 +262,13 @@ export class RpcContractProvider implements ContractProvider {
     spendable = false,
     delegatable = false,
     delegate,
-    fee = 10000,
-    gasLimit = 10600,
-    storageLimit = 257,
+    fee = DEFAULT_FEE.ORIGINATION,
+    gasLimit = DEFAULT_GAS_LIMIT.ORIGINATION,
+    storageLimit = DEFAULT_STORAGE_LIMIT.ORIGINATION,
   }: OriginateParams) {
     const script = {
-      code: ml2mic(code),
-      storage: sexp2mic(init),
+      code: Array.isArray(code) ? code : ml2mic(code),
+      storage: typeof init === 'object' ? init : sexp2mic(init),
     };
 
     const publicKeyHash = await this.signer.publicKeyHash();
@@ -292,9 +303,9 @@ export class RpcContractProvider implements ContractProvider {
   async setDelegate({
     delegate,
     source,
-    fee = 1000,
-    gasLimit = 10600,
-    storageLimit = 0,
+    fee = DEFAULT_FEE.DELEGATION,
+    gasLimit = DEFAULT_GAS_LIMIT.DELEGATION,
+    storageLimit = DEFAULT_STORAGE_LIMIT.DELEGATION,
   }: DelegateParams) {
     const operation: DelegateOperation = {
       kind: 'delegation',
@@ -319,7 +330,11 @@ export class RpcContractProvider implements ContractProvider {
    *
    * @param RegisterDelegate operation parameter
    */
-  async registerDelegate({ fee = 1000, gasLimit = 10600, storageLimit = 0 }: any) {
+  async registerDelegate({
+    fee = DEFAULT_FEE.DELEGATION,
+    gasLimit = DEFAULT_GAS_LIMIT.DELEGATION,
+    storageLimit = DEFAULT_STORAGE_LIMIT.DELEGATION,
+  }: any) {
     const operation: DelegateOperation = {
       kind: 'delegation',
       fee,
@@ -344,9 +359,9 @@ export class RpcContractProvider implements ContractProvider {
     source,
     amount,
     parameter,
-    fee = 10000,
-    gasLimit = 10600,
-    storageLimit = 300,
+    fee = DEFAULT_FEE.TRANSFER,
+    gasLimit = DEFAULT_GAS_LIMIT.TRANSFER,
+    storageLimit = DEFAULT_STORAGE_LIMIT.TRANSFER,
     mutez = false,
     rawParam = false,
   }: TransferParams) {
@@ -355,7 +370,7 @@ export class RpcContractProvider implements ContractProvider {
       fee,
       gas_limit: gasLimit,
       storage_limit: storageLimit,
-      amount: mutez ? format('tz', 'mutez', amount).toString() : amount.toString(),
+      amount: mutez ? amount.toString() : format('tz', 'mutez', amount).toString(),
       destination: to,
     };
     if (parameter) {

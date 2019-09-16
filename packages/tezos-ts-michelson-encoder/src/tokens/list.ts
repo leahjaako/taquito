@@ -11,6 +11,17 @@ export class ListToken extends Token {
     super(val, idx, fac);
   }
 
+  public Encode(args: any[]): any {
+    const val = args.pop();
+    const schema = this.createToken(this.val.args[0], 0);
+    return {
+      prim: 'list',
+      args: val.reduce((prev: any, current: any) => {
+        return [...prev, schema.Encode(current)];
+      }, []),
+    };
+  }
+
   public Execute(val: any) {
     const schema = this.createToken(this.val.args[0], 0);
     return val.reduce((prev: any, current: any) => {
@@ -20,5 +31,7 @@ export class ListToken extends Token {
 
   public ExtractSchema() {
     return ListToken.prim;
+    const schema = this.createToken(this.val.args[0], 0);
+    return { [ListToken.prim]: schema.ExtractSchema() };
   }
 }

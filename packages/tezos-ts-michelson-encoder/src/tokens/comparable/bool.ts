@@ -15,6 +15,11 @@ export class BoolToken extends Token {
     return String(val.prim).toLowerCase() === 'true' ? true : false;
   }
 
+  public Encode(args: any[]): any {
+    const val = args.pop();
+    return val ? 'true' : 'false';
+  }
+
   public ExtractSchema() {
     return BoolToken.prim;
   }
